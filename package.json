@@ -1,0 +1,39 @@
+{
+  "name": "movie_site",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc -b",
+    "dev": "npm run build && node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.0.0",
+    "@types/express": "^5.0.3",
+    "axios": "^1.12.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "grammy": "^1.38.3",
+    "input": "^1.0.1",
+    "pg": "^8.17.2",
+    "prisma": "^7.0.0",
+    "string-similarity": "^4.0.4",
+    "telegraf": "^4.16.3",
+    "telegram": "^2.26.22",
+    "typegram": "^5.2.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/node-fetch": "^2.6.13",
+    "@types/pg": "^8.16.0",
+    "@types/string-similarity": "^4.0.2"
+  }
+}

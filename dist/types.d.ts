@@ -1,0 +1,41 @@
+export type Movie = {
+    file_id: string;
+    file_name: string;
+    populatiry: string | null;
+    file_size: string | undefined | null;
+    thumbnail?: any;
+    link?: string;
+    message_id: number;
+    chat_id?: string;
+    language: string[];
+    genre?: string[];
+    telegram_link: string;
+    releaseDat: string;
+    rating: string;
+};
+export type SeriesEpisode = {
+    file_id: string;
+    file_name: string;
+    message_id: number;
+    chat_id?: string;
+    telegram_link: string;
+    thumbnail?: string | null;
+    file_size?: string | undefined | null;
+    mime_type?: string | undefined;
+    series_name: string;
+    tmdb_series_id: number;
+    tmdb_season_id: number | null;
+    season_number: number;
+    episode_number: number;
+    width?: number | null;
+    height?: number | null;
+    tmdbEpisodeId: number;
+    episode_title?: string;
+    episode_overview?: string;
+    episode_air_date?: string;
+    episode_still?: string;
+    runtime?: number;
+    vote_average?: number;
+};
+export declare const TMDB_GENRES: Record<number, string>;
+//# sourceMappingURL=types.d.ts.map

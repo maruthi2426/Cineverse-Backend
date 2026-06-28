@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator seriesClient {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/series-client"
+}
+
+datasource db1 {
+  provider = "postgresql"
+}
+
+model TVSeries {
+  id          Int      @id @default(autoincrement())
+  tmdbId      Int      @unique
+  chat_id     String
+  popularity  String
+  title       String
+  language    String
+  genre       String[] @default([])
+  overview    String?
+  posterPath  String?
+  backdrop    String?
+  releaseDate String?
+  rating      String?
+  seasons     Season[]
+}
+
+model Season {
+  id           Int      @id @default(autoincrement())
+  seasonNumber Int
+  chat_id      String
+  tmdbId       Int?
+  // Relation
+  series       TVSeries @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  seriesId     Int
+
+  episodes Episode[]
+
+  @@unique([seriesId, seasonNumber])
+}
+
+model Episode {
+  id            Int       @id @default(autoincrement())
+  episodeNumber Int
+  tmdbEpisodeId Int
+  chat_id       String
+  file_id       String
+  title         String?
+  overview      String?
+  filesize      String?   @default("")
+  airDate       DateTime?
+  runtime       Int?
+  message_id    Int?
+  telegramLink  String? // Link to your Telegram file/post
+  stillPath     String?
+  // Relation
+  season        Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  seasonId      Int
+
+  @@index([tmdbEpisodeId]) // quick lookup by TMDB episode id
+  @@index([seasonId, episodeNumber]) // common query pattern
+}

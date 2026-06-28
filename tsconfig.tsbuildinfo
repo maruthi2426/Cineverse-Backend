@@ -1,0 +1,1 @@
+{"root":["./src/prismaseries.ts","./src/bot.ts","./src/generatesession.ts","./src/gettmdbseries.ts","./src/index.ts","./src/prisma.ts","./src/types.ts","./src/types/input.d.ts","./src/types/tg-session.d.ts"],"version":"5.9.3"}
