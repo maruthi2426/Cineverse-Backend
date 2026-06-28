@@ -4,9 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc -b",
-    "dev": "npm run build && node dist/index.js"
+  "build": "npx prisma generate --config prisma.config.ts && npx prisma generate --config prisma.series.config.ts && tsc -b",
+  "start": "node dist/index.js",
+  "dev": "npm run build && node dist/index.js"
   },
   "keywords": [],
   "author": "",
