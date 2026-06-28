@@ -115,6 +115,8 @@ app.get('/allepisode',async (req, res) => {
   }
 })();
 
-app.listen(3001, () => {
-  console.log('Express server running on port 3001');
+const PORT = Number(process.env.PORT) || 3001;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Express server running on port ${PORT}`);
 });
