@@ -1,8 +1,9 @@
 import axios, { AxiosError } from "axios";
 import { tmdbRateLimiter } from "./rateLimiter.js";
 import { logger } from "./logger.js";
+import stringSimilarity from "string-similarity";
+import { TMDB_GENRES } from "../types.js";
 
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BEARER = process.env.TMDB_BEARER;
 
 const RETRYABLE_CODES = new Set(["ECONNRESET", "ETIMEDOUT", "ECONNABORTED"]);
@@ -21,15 +22,16 @@ async function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function tmdbFetch<T>(url: string, useBearer = false): Promise<T | null> {
+async function tmdbFetch<T>(url: string): Promise<T | null> {
+  if (!TMDB_BEARER) throw new Error("TMDB_BEARER is not set");
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
       await tmdbRateLimiter.consume();
-      const headers: Record<string, string> = {};
-      if (useBearer && TMDB_BEARER) {
-        headers["Authorization"] = `Bearer ${TMDB_BEARER}`;
-      }
-      const response = await axios.get(url, { headers, timeout: 8000 });
+      const response = await axios.get(url, {
+        headers: { Authorization: `Bearer ${TMDB_BEARER}` },
+        timeout: 8000,
+      });
       return response.data as T;
     } catch (error) {
       const err = error as AxiosError;
@@ -54,6 +56,7 @@ interface TmdbSearchResult {
   id: number;
   title?: string;
   name?: string;
+  original_name?: string;
   original_language?: string;
   popularity?: number;
   vote_average?: number;
@@ -93,17 +96,13 @@ interface TmdbEpisodeExternalIds {
 }
 
 export async function searchMovie(query: string): Promise<TmdbSearchResult[]> {
-  const apiKey = TMDB_API_KEY;
-  if (!apiKey) throw new Error("TMDB_API_KEY not set");
-  const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=${encodeURIComponent(query)}`;
+  const url = `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}`;
   const data = await tmdbFetch<TmdbSearchResponse>(url);
   return data?.results ?? [];
 }
 
 export async function searchTvSeries(query: string): Promise<TmdbSearchResult[]> {
-  const apiKey = TMDB_API_KEY;
-  if (!apiKey) throw new Error("TMDB_API_KEY not set");
-  const url = `https://api.themoviedb.org/3/search/tv?api_key=${apiKey}&query=${encodeURIComponent(query)}`;
+  const url = `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}`;
   const data = await tmdbFetch<TmdbSearchResponse>(url);
   return data?.results ?? [];
 }
@@ -112,9 +111,7 @@ export async function getSeasonDetails(
   seriesId: number,
   seasonNumber: number,
 ): Promise<TmdbSeasonResponse | null> {
-  const apiKey = TMDB_API_KEY;
-  if (!apiKey) throw new Error("TMDB_API_KEY not set");
-  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}?api_key=${apiKey}`;
+  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}`;
   return tmdbFetch<TmdbSeasonResponse>(url);
 }
 
@@ -123,9 +120,7 @@ export async function getEpisodeDetails(
   seasonNumber: number,
   episodeNumber: number,
 ): Promise<TmdbEpisodeResponse | null> {
-  const apiKey = TMDB_API_KEY;
-  if (!apiKey) throw new Error("TMDB_API_KEY not set");
-  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}?api_key=${apiKey}`;
+  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}`;
   return tmdbFetch<TmdbEpisodeResponse>(url);
 }
 
@@ -134,10 +129,89 @@ export async function getEpisodeExternalIds(
   seasonNumber: number,
   episodeNumber: number,
 ): Promise<TmdbEpisodeExternalIds | null> {
-  const apiKey = TMDB_API_KEY;
-  if (!apiKey) throw new Error("TMDB_API_KEY not set");
-  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/external_ids?api_key=${apiKey}`;
+  const url = `https://api.themoviedb.org/3/tv/${seriesId}/season/${seasonNumber}/episode/${episodeNumber}/external_ids`;
   return tmdbFetch<TmdbEpisodeExternalIds>(url);
 }
 
 export type { TmdbSearchResult, TmdbSeasonResponse, TmdbEpisodeResponse };
+
+export function extractBestMovieMatch(
+  results: TmdbSearchResult[],
+  cleanTitle: string,
+): {
+  tmdb_id: number | null;
+  releaseDate: string | null;
+  genre: string[];
+  popularity: string;
+  language: string;
+  rating: string;
+  backdrop: string | null;
+  thumbnail: string | null;
+} {
+  const empty = {
+    tmdb_id: null as number | null,
+    releaseDate: null as string | null,
+    genre: [] as string[],
+    popularity: "",
+    language: "",
+    rating: "",
+    backdrop: null as string | null,
+    thumbnail: null as string | null,
+  };
+
+  if (!results.length) return empty;
+
+  const bestMatch = stringSimilarity.findBestMatch(
+    cleanTitle.toLowerCase(),
+    results.map((r: any) => (r.title || r.name || "").toLowerCase()),
+  );
+
+  const best = results[bestMatch.bestMatchIndex];
+  if (!best) return empty;
+
+  return {
+    tmdb_id: best.id ?? null,
+    releaseDate: best.release_date ?? null,
+    genre: ((best.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean) as string[]),
+    popularity: best.popularity != null ? String(best.popularity) : "",
+    language: best.original_language ?? "",
+    rating: best.vote_average != null ? String(best.vote_average) : "",
+    backdrop: best.backdrop_path ?? null,
+    thumbnail: best.poster_path ?? null,
+  };
+}
+
+export function findBestSeriesMatch(
+  results: TmdbSearchResult[],
+  cleanTitle: string,
+): {
+  tmdbSeriesId: number;
+  popularity: number;
+  genre: string[];
+  language: string;
+  rating: number;
+  releaseDate: string;
+  backdrop: string;
+  bestMatchSeries: TmdbSearchResult;
+} | null {
+  if (!results.length) return null;
+
+  const bestMatch = stringSimilarity.findBestMatch(
+    cleanTitle.toLowerCase(),
+    results.map((r: any) => (r.name || r.original_name || "").toLowerCase()),
+  );
+
+  const best = results[bestMatch.bestMatchIndex];
+  if (!best) return null;
+
+  return {
+    tmdbSeriesId: best.id,
+    popularity: best.popularity ?? 0,
+    genre: ((best.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean) as string[]),
+    language: best.original_language ?? "",
+    rating: best.vote_average ?? 0,
+    releaseDate: best.first_air_date ?? "",
+    backdrop: best.backdrop_path ?? "",
+    bestMatchSeries: best,
+  };
+}

@@ -1,11 +1,12 @@
 import express from "express";
 import dotenv from "dotenv";
-import bot from "./bot.js";
+import bot, { userClient, mtProtoReady } from "./bot.js";
 
 import cors from 'cors'
 import { prismaMovies } from "./prisma.js";
 import { seriesPrisma } from "./Prismaseries.js";
 import { logger } from "./utils/logger.js";
+import { backfillMovies, backfillSeries } from "./utils/backfill.js";
 
 dotenv.config();
 
@@ -157,6 +158,15 @@ const server = app.listen(PORT, () => {
   try {
     await bot.launch();
     logger.info("Server", "Telegram bot launched");
+
+    // Wait for MTProto to connect, then backfill missed channel posts
+    await mtProtoReady;
+    logger.info("Server", "Starting channel backfill...");
+    await Promise.all([
+      backfillMovies(userClient, 100),
+      backfillSeries(userClient, 100),
+    ]);
+    logger.info("Server", "Backfill complete");
   } catch (err) {
     logger.error("Server", "Failed to launch bot", err);
   }

@@ -5,8 +5,6 @@ import type { Update } from "telegraf/types";
 import dotenv from "dotenv";
 import { type SeriesEpisode, TMDB_GENRES } from "./types.js";
 
-import stringSimilarity from "string-similarity";
-
 import { seriesPrisma } from "./Prismaseries.js";
 import { prismaMovies } from "./prisma.js";
 import {
@@ -14,6 +12,8 @@ import {
   searchTvSeries,
   getSeasonDetails as getTvSeasonDetails,
   getEpisodeDetails as getTvEpisodeDetails,
+  extractBestMovieMatch,
+  findBestSeriesMatch,
 } from "./utils/tmdb.js";
 import { cleanFilename, extractYear, extractSeriesEpisode } from "./utils/cleanFilename.js";
 import { logger } from "./utils/logger.js";
@@ -37,8 +37,8 @@ const userClient = new TelegramClient(stringSession, apiId, apiHash, {
   connectionRetries: 5,
 });
 
-// Connect once at startup
-(async () => {
+// Connect once at startup — export promise so backfill can await it
+export const mtProtoReady = (async () => {
   try {
     await userClient.connect();
     logger.info("Bot", "MTProto user client connected successfully");
@@ -47,14 +47,14 @@ const userClient = new TelegramClient(stringSession, apiId, apiHash, {
   }
 })();
 
-// ⚡ Send via user account (>2 GB)
+// ⚡ Send via user account (>2 GB) — also used for backfilled records via MTProto
 async function sendLargeVideo(toUser: number, video: Record<string, any>) {
   const movieTitle =
     typeof video.file_name === "string"
       ? video.file_name.replace(/\.[^/.]+$/, "")
       : "Video";
 
-  if (!video.access_hash || !video.file_reference) {
+  if (!video.accessHash || !video.fileReference) {
     logger.error("Bot-largeVideo", "Missing access_hash or file_reference");
     throw new Error("Large video missing MTProto metadata (file_reference / access_hash)");
   }
@@ -64,9 +64,9 @@ async function sendLargeVideo(toUser: number, video: Record<string, any>) {
       peer: toUser,
       media: new Api.InputMediaDocument({
         id: new Api.InputDocument({
-          id: video.file_id,
-          accessHash: video.access_hash,
-          fileReference: Buffer.from(video.file_reference, "base64"),
+          id: video.fileid, // could be BigInt (backfill) or string (unused path)
+          accessHash: video.accessHash,
+          fileReference: Buffer.from(video.fileReference, "base64"),
         }),
       }),
       message: movieTitle,
@@ -145,32 +145,46 @@ bot.start(async (ctx) => {
     const size = record.filesize ? Number(record.filesize) : 0;
     const movieTitle = record.filename.replace(/\.[^/.]+$/, "");
 
-    if (size > 2000 * 1024 * 1024) {
+    // Prefer MTProto when we have access_hash (backfilled records or large files)
+    if (record.accessHash && record.fileReference) {
       await ctx.telegram.editMessageText(
         ctx.chat.id,
         searchingMsg.message_id,
         undefined,
-        "🎥 Sending via client (file > 2GB)...",
+        "🎥 Sending...",
       );
       await sendLargeVideo(userId, record);
-      return ctx.reply("✅ Sent successfully!");
-    } else {
-      await ctx.telegram.editMessageText(
-        ctx.chat.id,
-        searchingMsg.message_id,
-        undefined,
-        "Sending...",
-      );
-
-      await ctx.telegram.sendVideo(userId, String(record.fileid), {
-        caption: movieTitle,
-        supports_streaming: true,
-      });
       try {
         await ctx.telegram.deleteMessage(ctx.chat.id, searchingMsg.message_id);
       } catch (e) {}
       return ctx.reply("🎬 Enjoy !");
     }
+
+    if (size > 2000 * 1024 * 1024) {
+      await ctx.telegram.editMessageText(
+        ctx.chat.id,
+        searchingMsg.message_id,
+        undefined,
+        "⚠️ Cannot send files >2GB without MTProto session.",
+      );
+      return;
+    }
+
+    await ctx.telegram.editMessageText(
+      ctx.chat.id,
+      searchingMsg.message_id,
+      undefined,
+      "Sending...",
+    );
+
+    await ctx.telegram.sendVideo(userId, String(record.fileid), {
+      caption: movieTitle,
+      supports_streaming: true,
+    });
+    try {
+      await ctx.telegram.deleteMessage(ctx.chat.id, searchingMsg.message_id);
+    } catch (e) {}
+    return ctx.reply("🎬 Enjoy !");
   } catch (err) {
     logger.error("Bot-start", "Failed to send video", err);
     await ctx.telegram.editMessageText(
@@ -456,87 +470,7 @@ async function handleSeriesChannelPost(ctx: Context) {
   logger.info("Series", `✅ Episode added: ${episodeObj.series_name} S${episodeObj.season_number}E${episodeObj.episode_number}`);
 }
 
-function extractBestMovieMatch(
-  results: any[],
-  cleanTitle: string,
-): {
-  tmdb_id: number | null;
-  releaseDate: string | null;
-  genre: string[];
-  popularity: string;
-  language: string;
-  rating: string;
-  backdrop: string | null;
-  thumbnail: string | null;
-} {
-  const empty = {
-    tmdb_id: null as number | null,
-    releaseDate: null as string | null,
-    genre: [] as string[],
-    popularity: "",
-    language: "",
-    rating: "",
-    backdrop: null as string | null,
-    thumbnail: null as string | null,
-  };
-
-  if (!results.length) return empty;
-
-  const bestMatch = stringSimilarity.findBestMatch(
-    cleanTitle.toLowerCase(),
-    results.map((r: any) => (r.title || r.name || "").toLowerCase()),
-  );
-
-  const best = results[bestMatch.bestMatchIndex];
-  if (!best) return empty;
-
-  return {
-    tmdb_id: best.id ?? null,
-    releaseDate: best.release_date ?? null,
-    genre: (best.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean),
-    popularity: best.popularity != null ? String(best.popularity) : "",
-    language: best.original_language ?? "",
-    rating: best.vote_average != null ? String(best.vote_average) : "",
-    backdrop: best.backdrop_path ?? null,
-    thumbnail: best.poster_path ?? null,
-  };
-}
-
-function findBestSeriesMatch(
-  results: any[],
-  cleanTitle: string,
-): {
-  tmdbSeriesId: number;
-  popularity: number;
-  genre: string[];
-  language: string;
-  rating: number;
-  releaseDate: string;
-  backdrop: string;
-  bestMatchSeries: any;
-} | null {
-  if (!results.length) return null;
-
-  const bestMatch = stringSimilarity.findBestMatch(
-    cleanTitle.toLowerCase(),
-    results.map((r: any) => (r.name || r.original_name || "").toLowerCase()),
-  );
-
-  const best = results[bestMatch.bestMatchIndex];
-  if (!best) return null;
-
-  return {
-    tmdbSeriesId: best.id,
-    popularity: best.popularity ?? 0,
-    genre: (best.genre_ids || []).map((id: number) => TMDB_GENRES[id]).filter(Boolean),
-    language: best.original_language ?? "",
-    rating: best.vote_average ?? 0,
-    releaseDate: best.first_air_date ?? "",
-    backdrop: best.backdrop_path ?? "",
-    bestMatchSeries: best,
-  };
-}
-
 bot.help((ctx) => ctx.reply("Send /start to receive a movie 🎥"));
 
 export default bot;
+export { userClient, MOVIE_CHANNEL_ID, SERIES_CHANNEL_ID };
