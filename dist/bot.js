@@ -15,8 +15,8 @@ export const bot = new Telegraf(process.env.BOT_TOKEN);
 const apiId = Number(process.env.apiId);
 const apiHash = process.env.apiHash;
 const stringSession = new StringSession(process.env.STRING_SESSION);
-const MOVIE_CHANNEL_ID = -1003137257780;
-const SERIES_CHANNEL_ID = -1003259326946;
+const MOVIE_CHANNEL_ID = -1003826321539;
+const SERIES_CHANNEL_ID = -1004339073431;
 // Create a Telegram user client instance (persistent)
 const userClient = new TelegramClient(stringSession, apiId, apiHash, {
     connectionRetries: 5,
