@@ -49,18 +49,20 @@ model Episode {
   tmdbEpisodeId Int
   chat_id       String
   file_id       String
+  file_unique_id String?
   title         String?
   overview      String?
   filesize      String?   @default("")
   airDate       DateTime?
   runtime       Int?
   message_id    Int?
-  telegramLink  String? // Link to your Telegram file/post
+  telegramLink  String?
   stillPath     String?
-  // Relation
+  access_hash   BigInt?
+  file_reference String?
   season        Season    @relation(fields: [seasonId], references: [id], onDelete: Cascade)
   seasonId      Int
 
-  @@index([tmdbEpisodeId]) // quick lookup by TMDB episode id
-  @@index([seasonId, episodeNumber]) // common query pattern
+  @@index([tmdbEpisodeId])
+  @@index([seasonId, episodeNumber])
 }

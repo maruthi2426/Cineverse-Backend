@@ -14,20 +14,23 @@ datasource db {
 }
 
 model Videos {
-  id            Int      @id @default(autoincrement())
-  file_id       String   @unique
-  popularity    String
-  file_name     String
-  genre         String[] @default([])
-  language      String
-  file_size     String?  @default("")
-  thumbnail     String?
-  backdrop      String?
-  releaseDate   String?
-  message_id    Int?
-  chat_id       String
-  telegram_link String?
-  rating        String?
-  title         String
-  tmdb_id       Int?
+  id              Int      @id @default(autoincrement())
+  file_id         String   @unique
+  file_unique_id  String?
+  popularity      String
+  file_name       String
+  genre           String[] @default([])
+  language        String
+  file_size       String?  @default("")
+  thumbnail       String?
+  backdrop        String?
+  releaseDate     String?
+  message_id      Int?
+  chat_id         String
+  telegram_link   String?
+  rating          String?
+  title           String
+  tmdb_id         Int?
+  access_hash     BigInt?
+  file_reference  String?
 }
