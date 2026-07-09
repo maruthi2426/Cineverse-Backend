@@ -217,7 +217,7 @@ async function handleMovieChannelPost(ctx: Context) {
   if (!post) return;
   const message_id = post.message_id;
   const chat_id = String(post.chat.id);
-  const telegram_link = `https://t.me/CineVerse9_bot?start=${message_id}`;
+  const telegram_link = `https://t.me/Rssfeeds26bot_bot?start=${message_id}`;
 
   if ("video" in post && post.video) {
     const video = post.video;
@@ -236,7 +236,7 @@ async function handleMovieChannelPost(ctx: Context) {
 
     logger.info("Movie", `Matched TMDB ID: ${tmdb_id ?? "❌ Not found"}`);
 
-    const teleMsg = `https://t.me/CineVerse9_bot?start=${message_id}`;
+    const teleMsg = `https://t.me/Rssfeeds26bot_bot?start=${message_id}`;
     await prismaMovies.videos.upsert({
       where: { file_id },
       update: {
@@ -338,7 +338,7 @@ async function handleSeriesChannelPost(ctx: Context) {
   const file_name = doc.file_name || "";
   const message_id = post.message_id;
   const chat_id = String(post.chat.id);
-  const telegram_link = `https://t.me/CineVerse9_bot?start=${message_id}`;
+  const telegram_link = `https://t.me/Rssfeeds26bot_bot?start=${message_id}`;
 
   const parsed = extractSeriesEpisode(file_name);
   if (!parsed) {
