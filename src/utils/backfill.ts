@@ -58,7 +58,7 @@ export async function backfillMovies(userClient: TelegramClient, limit = 100): P
 
       const results = await searchMovie(cleanTitle);
       const match = extractBestMovieMatch(results, cleanTitle);
-      const telegram_link = `https://t.me/CineVerse9_bot?start=${message_id}`;
+      const telegram_link = `https://t.me/Rssfeeds26bot_bot?start=${message_id}`;
 
       await prismaMovies.videos.upsert({
         where: { file_id },
@@ -174,7 +174,7 @@ export async function backfillSeries(userClient: TelegramClient, limit = 100): P
       }
 
       const episodeData = await getEpisodeDetails(tmdbSeriesId, parsed.seasonNumber, parsed.episodeNumber);
-      const telegram_link = `https://t.me/CineVerse9_bot?start=${message_id}`;
+      const telegram_link = `https://t.me/Rssfeeds26bot_bot?start=${message_id}`;
 
       const episodeObj: SeriesEpisode = {
         file_id,
