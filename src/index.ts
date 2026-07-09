@@ -13,7 +13,7 @@ dotenv.config();
 
 const app = express();
 
-app.use(cors({origin : ["http://localhost:3000","https://cinevers.vercel.app/"]}))
+app.use(cors({origin : ["http://localhost:3000","https://v1moviewebsite-ashy.vercel.app/"]}))
 
 app.get('/', async (req, res) => {
   try {
